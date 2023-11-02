@@ -58,6 +58,7 @@ use Getopt::Std;
 # defaults
 my $normalize = 0;	# make sample counts equal
 my $striphex = 0;	# strip hex numbers
+my $stripjavaanon = 0;  # strip java anonimous functions ids
 
 sub usage {
 	print STDERR <<USAGE_END;
@@ -65,6 +66,7 @@ USAGE: $0 [-hns] folded1 folded2 | flamegraph.pl > diff2.svg
 	    -h       # help message
 	    -n       # normalize sample counts
 	    -s       # strip hex numbers (addresses)
+	    -j       # strip java anonimous functions ids
 See stackcollapse scripts for generating folded files.
 Also consider flipping the files and hues to highlight reduced paths:
 $0 folded2 folded1 | ./flamegraph.pl --negate > diff1.svg
@@ -73,11 +75,12 @@ USAGE_END
 }
 
 usage() if @ARGV < 2;
-our($opt_h, $opt_n, $opt_s);
-getopts('ns') or usage();
+our($opt_h, $opt_n, $opt_s, $opt_j);
+getopts('nsj') or usage();
 usage() if $opt_h;
 $normalize = 1 if defined $opt_n;
 $striphex = 1 if defined $opt_s;
+$stripjavaanon = 1 if defined $opt_j;
 
 my ($total1, $total2) = (0, 0);
 my %Folded;
@@ -90,6 +93,10 @@ while (<FILE>) {
 	chomp;
 	my ($stack, $count) = (/^(.*)\s+?(\d+(?:\.\d*)?)$/);
 	$stack =~ s/0x[0-9a-fA-F]+/0x.../g if $striphex;
+	if ($stripjavaanon) {
+		while ($stack =~ s/(\$[^0-9;]*)\d+/$1XXX/g) {
+		}
+	}
 	$Folded{$stack}{1} += $count;
 	$total1 += $count;
 }
@@ -100,6 +107,10 @@ while (<FILE>) {
 	chomp;
 	my ($stack, $count) = (/^(.*)\s+?(\d+(?:\.\d*)?)$/);
 	$stack =~ s/0x[0-9a-fA-F]+/0x.../g if $striphex;
+	if ($stripjavaanon) {
+		while ($stack =~ s/(\$[^0-9;]*)\d+/$1XXX/g) {
+		}
+	}
 	$Folded{$stack}{2} += $count;
 	$total2 += $count;
 }
@@ -113,3 +124,4 @@ foreach my $stack (keys %Folded) {
 	}
 	print "$stack $Folded{$stack}{1} $Folded{$stack}{2}\n";
 }
+
